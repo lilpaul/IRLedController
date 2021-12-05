@@ -41,19 +41,22 @@ const int NINE = 74;
 const int CONTINUE = 0;
 
 //IR PIN
-const int IR_PIN = 8;
+const int IR_PIN = 9;
 ////END IR DEFS
 
 ////BEGIN LED DEFS
 #define LED_PIN     10
-#define NUM_LEDS    60
+#define NUM_LEDS    600
 CRGB leds[NUM_LEDS];
 int brightness = 125;
 int mode = 0;
-int maxMode = 1;
+int maxMode = 2;
 uint8_t hue = 120;
 uint8_t hueIncr = 1;
 int changeDelay = 50;
+int currentPixel = 0;
+int fadeSpeed = 35;
+int pixelDirection = 1;
 ////END LED DEFS
 
 void setup() {
@@ -95,6 +98,9 @@ void performMode()
       case 1:
         rainbow();
         break;
+      case 2:
+        sinelon();
+        break;
     }
     timingObj.setPeriod(changeDelay); 
     FastLED.setBrightness(brightness);
@@ -127,20 +133,56 @@ void adjustMode(int amount)
   {
     mode = 0;
   }
+  Serial.println("adjustMode mode: "+String(mode));
 }
 
 void adjustSpeed(int amount)
 {
-  changeDelay = changeDelay + amount;
-  if (changeDelay < 10)
+  if (changeDelay <= 10 && amount < 0)
   {
-    changeDelay = 10;
+    changeDelay--;
+  }
+  else if (changeDelay < 10 && amount > 0)
+  {
+    changeDelay++;
+  }
+  else
+  {
+    changeDelay = changeDelay + amount;
+  }
+  if (changeDelay < 1)
+  {
+    changeDelay = 1;
   }
   if (changeDelay > 5000)
   {
     changeDelay = 5000;
   }
   Serial.println("adjustSpeed("+String(amount)+" Speed: "+String(changeDelay));
+}
+
+void adjustHueIncr(int amount)
+{
+  hueIncr = hueIncr + amount;
+  if (hueIncr < 0)
+  {
+    hueIncr = 0;
+  }
+  if (hueIncr > 10)
+  {
+    hueIncr = 10;
+  }
+  Serial.println("adjustHueIncr("+String(amount)+" HueIncr: "+String(hueIncr));
+}
+
+void adjustFadeSpeed(int amount)
+{
+  fadeSpeed = fadeSpeed + amount;
+  if (fadeSpeed > 255)
+  {
+    fadeSpeed = 5;
+  }
+  Serial.println("adjustFadeSpeed("+String(amount)+" fadeSpeed: "+String(fadeSpeed));
 }
 
 ////LED MODES
@@ -154,9 +196,25 @@ void singleColour()
 void rainbow()
 {
   //Serial.println("rainbow execute");
-  uint8_t hueJump = (255 / NUM_LEDS) * hueIncr;
+  uint8_t hueJump = hueIncr;
   fill_rainbow(leds, NUM_LEDS, hue, hueJump);
   hue = hue + hueIncr;
+}
+
+void sinelon()
+{
+  fadeToBlackBy(leds, NUM_LEDS, fadeSpeed);
+  currentPixel = currentPixel + pixelDirection;
+  leds[currentPixel] = CHSV(hue, 255, 255);
+  hue = hue + hueIncr;
+  if (currentPixel == NUM_LEDS-1)
+  {
+    pixelDirection = -1;
+  }
+  if (currentPixel == 0)
+  {
+    pixelDirection = 1;
+  }
 }
 ////END LED MODES
 //END LED FUNCTIONS
@@ -194,16 +252,16 @@ void doActionFromIR(int command)
       adjustBrightness(5);
       break;
     case EQ:
-      //nextPattern();
+      adjustFadeSpeed(5);
       break;
     case ZERO:
       //nextPattern();
       break;
     case PLUS_100:
-      //nextPattern();
+      adjustHueIncr(-1);
       break;
     case PLUS_200:
-      //nextPattern();
+      adjustHueIncr(1);
       break;
     case ONE:
       //nextPattern();
