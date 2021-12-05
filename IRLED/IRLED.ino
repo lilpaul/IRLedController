@@ -49,6 +49,11 @@ const int IR_PIN = 8;
 #define NUM_LEDS    60
 CRGB leds[NUM_LEDS];
 int brightness = 125;
+int mode = 0;
+int maxMode = 1;
+uint8_t hue = 120;
+uint8_t hueIncr = 1;
+int changeDelay = 50;
 ////END LED DEFS
 
 void setup() {
@@ -61,14 +66,8 @@ void setup() {
 
 void loop() {
   /* do effects here */
-  leds[0] = CRGB(255, 0, 0);
-  leds[1] = CRGB(0, 255, 0);
-  leds[2] = CRGB(0, 0, 255);
-  leds[5] = CRGB(150, 0, 255);
-  leds[9] = CRGB(255, 200, 20);
-  leds[14] = CRGB(85, 60, 180);
-  leds[19] = CRGB(50, 255, 20);
-
+  performMode();
+  
   while (!IrReceiver.isIdle());  // if not idle, wait till complete
 
   //check first for IR receiver
@@ -84,6 +83,24 @@ void loop() {
 }
 
 //LED FUNCTIONS
+void performMode()
+{
+  EVERY_N_MILLIS_I(timingObj, changeDelay) 
+  {
+    switch (mode)
+    {
+      case 0:
+        singleColour();
+        break;
+      case 1:
+        rainbow();
+        break;
+    }
+    timingObj.setPeriod(changeDelay); 
+    FastLED.setBrightness(brightness);
+  }
+}
+
 void adjustBrightness(int amount)
 {
   Serial.println("adjustBrightness called");
@@ -97,8 +114,51 @@ void adjustBrightness(int amount)
     brightness = 255;
   }
   Serial.println("Brightness adjusted to :" + String(brightness));
-  FastLED.setBrightness(brightness);
 }
+
+void adjustMode(int amount)
+{
+  mode = mode + amount;
+  if (mode < 0)
+  {
+    mode = maxMode;
+  }
+  if (mode > maxMode)
+  {
+    mode = 0;
+  }
+}
+
+void adjustSpeed(int amount)
+{
+  changeDelay = changeDelay + amount;
+  if (changeDelay < 10)
+  {
+    changeDelay = 10;
+  }
+  if (changeDelay > 5000)
+  {
+    changeDelay = 5000;
+  }
+  Serial.println("adjustSpeed("+String(amount)+" Speed: "+String(changeDelay));
+}
+
+////LED MODES
+void singleColour()
+{
+  //Serial.println("singleColour execute");
+  fill_solid(leds, NUM_LEDS, CHSV(hue, 255, 255));
+  hue = hue + hueIncr;
+}
+
+void rainbow()
+{
+  //Serial.println("rainbow execute");
+  uint8_t hueJump = (255 / NUM_LEDS) * hueIncr;
+  fill_rainbow(leds, NUM_LEDS, hue, hueJump);
+  hue = hue + hueIncr;
+}
+////END LED MODES
 //END LED FUNCTIONS
 
 //IR FUNCTIONS
@@ -108,19 +168,19 @@ void doActionFromIR(int command)
   switch(command)
   {
     case CHANNEL_MINUS:
-      //nextPattern();
+      adjustMode(-1);
       break;
     case CHANNEL:
       //nextPattern();
       break;
     case CHANNEL_PLUS:
-      //nextPattern();
+      adjustMode(1);
       break;
     case BACK:
-      //nextPattern();
+      adjustSpeed(10);
       break;
     case FORWARD:
-      //nextPattern();
+      adjustSpeed(-10);
       break;
     case PLAYPAUSE:
       //nextPattern();
